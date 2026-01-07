@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data
+archives/*
+!archives/.gitkeep
+sqlite3/*
+!sqlite3/.gitkeep
+logs/*
+!logs/.gitkeep
+config/download_state.json
+
+# OS
+.DS_Store

@@ -1,0 +1,48 @@
+2026-01-07 12:59:27,438 [INFO] [96mℹ️  Logs enregistrés dans: /Users/camille/Documents/dragonfly-mcp-server/docs/Legifrance/logs/download_20260107_125927.log[0m
+2026-01-07 12:59:27,439 [INFO] [96mℹ️  Téléchargement complet (Freemium + incrémental)[0m
+2026-01-07 12:59:27,440 [INFO] [96mℹ️  --- CASS ---[0m
+2026-01-07 12:59:27,440 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CASS/[0m
+2026-01-07 12:59:27,526 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour CASS[0m
+2026-01-07 12:59:48,148 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CASS/[0m
+2026-01-07 12:59:48,213 [INFO] [92m✅ Trouvé 21 archives pour CASS[0m
+2026-01-07 12:59:50,645 [INFO] [96mℹ️  --- INCA ---[0m
+2026-01-07 12:59:50,646 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/INCA/[0m
+2026-01-07 12:59:50,713 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour INCA[0m
+2026-01-07 13:00:44,913 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/INCA/[0m
+2026-01-07 13:00:44,977 [INFO] [92m✅ Trouvé 22 archives pour INCA[0m
+2026-01-07 13:00:47,476 [INFO] [96mℹ️  --- CAPP ---[0m
+2026-01-07 13:00:47,476 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CAPP/[0m
+2026-01-07 13:00:47,566 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour CAPP[0m
+2026-01-07 13:01:12,992 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CAPP/[0m
+2026-01-07 13:01:13,058 [INFO] [92m✅ Trouvé 13 archives pour CAPP[0m
+2026-01-07 13:01:14,031 [INFO] [96mℹ️  --- JADE ---[0m
+2026-01-07 13:01:14,031 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/JADE/[0m
+2026-01-07 13:01:14,115 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour JADE[0m
+2026-01-07 13:02:52,547 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/JADE/[0m
+2026-01-07 13:02:52,621 [INFO] [92m✅ Trouvé 131 archives pour JADE[0m
+2026-01-07 13:03:12,031 [INFO] [96mℹ️  --- CONSTIT ---[0m
+2026-01-07 13:03:12,032 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CONSTIT/[0m
+2026-01-07 13:03:12,100 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour CONSTIT[0m
+2026-01-07 13:03:13,194 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CONSTIT/[0m
+2026-01-07 13:03:13,260 [INFO] [92m✅ Trouvé 9 archives pour CONSTIT[0m
+2026-01-07 13:03:14,278 [INFO] [96mℹ️  --- CNIL ---[0m
+2026-01-07 13:03:14,279 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CNIL/[0m
+2026-01-07 13:03:14,348 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour CNIL[0m
+2026-01-07 13:03:15,898 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CNIL/[0m
+2026-01-07 13:03:15,962 [INFO] [92m✅ Trouvé 44 archives pour CNIL[0m
+2026-01-07 13:03:19,684 [INFO] [96mℹ️  --- LEGI ---[0m
+2026-01-07 13:03:19,684 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/LEGI/[0m
+2026-01-07 13:03:19,761 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour LEGI[0m
+2026-01-07 13:04:53,557 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/LEGI/[0m
+2026-01-07 13:04:53,657 [INFO] [92m✅ Trouvé 175 archives pour LEGI[0m
+2026-01-07 13:06:07,584 [INFO] [96mℹ️  --- JORF ---[0m
+2026-01-07 13:06:07,584 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/JORF/[0m
+2026-01-07 13:06:07,664 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour JORF[0m
+2026-01-07 13:08:18,313 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/JORF/[0m
+2026-01-07 13:08:18,399 [INFO] [92m✅ Trouvé 324 archives pour JORF[0m
+2026-01-07 13:09:55,036 [INFO] [96mℹ️  --- KALI ---[0m
+2026-01-07 13:09:55,036 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/KALI/[0m
+2026-01-07 13:09:55,105 [INFO] [92m✅ Trouvé 1 archive(s) Freemium pour KALI[0m
+2026-01-07 13:10:09,158 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/KALI/[0m
+2026-01-07 13:10:09,219 [INFO] [92m✅ Trouvé 102 archives pour KALI[0m
+2026-01-07 13:10:23,696 [INFO] [92m✅ Téléchargement complet terminé[0m

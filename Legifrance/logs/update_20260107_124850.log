@@ -1,0 +1,7 @@
+2026-01-07 12:48:50,213 [INFO] [96mℹ️  Logs enregistrés dans: /Users/camille/Documents/dragonfly-mcp-server/docs/Legifrance/logs/update_20260107_124850.log[0m
+2026-01-07 12:48:50,215 [INFO] [96mℹ️  🔄 Vérification des mises à jour pour CAPP...[0m
+2026-01-07 12:48:50,215 [INFO] [96mℹ️  CAPP: Mise à jour forcée[0m
+2026-01-07 12:48:50,216 [INFO] [96mℹ️  CAPP: Dernière archive locale: 20251117[0m
+2026-01-07 12:48:50,216 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CAPP/[0m
+2026-01-07 12:48:50,303 [INFO] [92m✅ Trouvé 13 archives pour CAPP[0m
+2026-01-07 12:48:50,304 [INFO] [96mℹ️  CAPP: Aucune nouvelle archive disponible[0m
