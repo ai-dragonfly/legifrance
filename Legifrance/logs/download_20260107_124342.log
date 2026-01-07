@@ -1,6 +1,0 @@
-2026-01-07 12:43:42,611 [INFO] [96mℹ️  Logs enregistrés dans: /Users/camille/Documents/dragonfly-mcp-server/docs/Legifrance/logs/download_20260107_124342.log[0m
-2026-01-07 12:43:42,613 [INFO] [96mℹ️  Téléchargement des archives incrémentales[0m
-2026-01-07 12:43:42,613 [INFO] [96mℹ️  🔍 Recherche des archives incrémentales pour CAPP (depuis début)...[0m
-2026-01-07 12:43:42,613 [INFO] [96mℹ️  Récupération du listing: https://echanges.dila.gouv.fr/OPENDATA/CAPP/[0m
-2026-01-07 12:43:42,686 [INFO] [92m✅ Trouvé 13 archives pour CAPP[0m
-2026-01-07 12:43:43,710 [INFO] [92m✅ ✅ Téléchargement incrémental terminé[0m
