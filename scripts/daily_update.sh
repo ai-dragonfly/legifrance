@@ -1,60 +1,88 @@
 #!/bin/bash
-# /mnt/legifrance/repo/legifrance/scripts/daily_update.sh
-# Script d'automatisation quotidienne : Download incremental + Reindex
+# Daily automation: download incremental archives + incremental reindex
 
-# Exit on error
 set -e
 
-# Config
 REPO_DIR="/mnt/legifrance/repo/legifrance"
 LOG_DIR="$REPO_DIR/logs"
 DATE=$(date +%Y%m%d)
 
-# Setup log
 exec > >(tee -a "$LOG_DIR/cron_update_$DATE.log") 2>&1
 
 echo "==================================================="
-echo "🚀 START DAILY UPDATE: $(date)"
+echo "START DAILY UPDATE: $(date)"
 echo "==================================================="
 
 cd "$REPO_DIR"
 source .venv/bin/activate
 
-# 1. Update DAILY sources (JORF, JADE)
+# 1) Download DAILY sources
+
 echo ""
-echo "📥 Downloading DAILY sources (JORF, JADE)..."
+echo "Downloading DAILY sources (JORF, JADE)..."
 python scripts/update_archives.py --daily
 
-echo ""
-echo "⚙️  Indexing DAILY sources..."
-python scripts/index_archives_fast.py --index-name jorf_prod --archives-root archives/JORF --verbose
-python scripts/index_archives_fast.py --index-name jade_prod --archives-root archives/JADE --verbose
-
-# 2. Update WEEKLY sources (Run everyday, script handles frequency check)
-echo ""
-echo "📥 Downloading WEEKLY sources (CASS, INCA, CAPP, CNIL, LEGI, KALI)..."
-python scripts/update_archives.py --weekly
+# 2) Incremental reindex DAILY sources
+# Rule A: if DB exists → reindex; else → initial index
 
 echo ""
-echo "⚙️  Indexing WEEKLY sources..."
-for source in cass inca capp cnil legi kali; do
-    echo " -> Indexing ${source}..."
-    python scripts/index_archives_fast.py \
-        --index-name "${source}_prod" \
-        --archives-root "archives/${source^^}" \
-        --verbose
+echo "Indexing DAILY sources..."
+
+for source in jorf jade; do
+  INDEX_DB="$REPO_DIR/sqlite3/index_${source}_prod.db"
+  ARCHIVE_ROOT="$REPO_DIR/archives/${source^^}"
+
+  echo " - $source"
+  if [ -f "$INDEX_DB" ]; then
+    python scripts/reindex_archives.py --index-name "${source}_prod" --archives-root "$ARCHIVE_ROOT" --verbose
+  else
+    python scripts/index_archives_fast.py --index-name "${source}_prod" --archives-root "$ARCHIVE_ROOT" --verbose
+  fi
+
 done
 
-# 3. Update MONTHLY sources (CONSTIT)
-echo ""
-echo "📥 Downloading MONTHLY sources (CONSTIT)..."
-python scripts/update_archives.py --monthly
+# 3) Download WEEKLY sources
 
 echo ""
-echo "⚙️  Indexing MONTHLY sources..."
-python scripts/index_archives_fast.py --index-name constit_prod --archives-root archives/CONSTIT --verbose
+echo "Downloading WEEKLY sources (CASS, INCA, CAPP, CNIL, LEGI, KALI)..."
+python scripts/update_archives.py --weekly
+
+# 4) Incremental reindex WEEKLY sources
+
+echo ""
+echo "Indexing WEEKLY sources..."
+for source in cass inca capp cnil legi kali; do
+  INDEX_DB="$REPO_DIR/sqlite3/index_${source}_prod.db"
+  ARCHIVE_ROOT="$REPO_DIR/archives/${source^^}"
+
+  echo " - $source"
+  if [ -f "$INDEX_DB" ]; then
+    python scripts/reindex_archives.py --index-name "${source}_prod" --archives-root "$ARCHIVE_ROOT" --verbose
+  else
+    python scripts/index_archives_fast.py --index-name "${source}_prod" --archives-root "$ARCHIVE_ROOT" --verbose
+  fi
+done
+
+# 5) Download MONTHLY sources
+
+echo ""
+echo "Downloading MONTHLY sources (CONSTIT)..."
+python scripts/update_archives.py --monthly
+
+# 6) Incremental reindex MONTHLY source
+
+echo ""
+echo "Indexing MONTHLY source..."
+INDEX_DB="$REPO_DIR/sqlite3/index_constit_prod.db"
+ARCHIVE_ROOT="$REPO_DIR/archives/CONSTIT"
+
+if [ -f "$INDEX_DB" ]; then
+  python scripts/reindex_archives.py --index-name constit_prod --archives-root "$ARCHIVE_ROOT" --verbose
+else
+  python scripts/index_archives_fast.py --index-name constit_prod --archives-root "$ARCHIVE_ROOT" --verbose
+fi
 
 echo ""
 echo "==================================================="
-echo "✅ END DAILY UPDATE: $(date)"
+echo "END DAILY UPDATE: $(date)"
 echo "==================================================="
