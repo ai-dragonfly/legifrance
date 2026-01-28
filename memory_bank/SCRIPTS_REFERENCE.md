@@ -27,6 +27,9 @@ Télécharge les archives DILA par source.
 - `--freemium` (init)
 - `--status`
 
+### Version
+**v1.0** (stable depuis 25 jan 2026)
+
 ---
 
 ## `check_integrity.py`
@@ -40,9 +43,16 @@ Télécharge les archives DILA par source.
 - Logs : `/root/legifrance/logs/integrity_*.log`
 - Lock : `/tmp/legifrance_integrity.lock`
 
+### Commandes
+- `--auto-fix` : supprime archives corrompues
+- `--relaunch-download` : relance téléchargement après suppression
+
+### Version
+**v1.0** (stable depuis 25 jan 2026)
+
 ---
 
-## `ingest_legifrance_pg.py` ⭐ v3.0 (Phase 2/3)
+## `ingest_legifrance_pg.py` ⭐ v3.1 (27 jan 2026)
 ### Rôle
 Ingestion streaming des archives vers PostgreSQL avec hiérarchie complète.
 
@@ -51,7 +61,8 @@ Ingestion streaming des archives vers PostgreSQL avec hiérarchie complète.
 - Parsing XML avec lxml (extraction métadonnées structurées)
 - Upsert dans table `documents` (INSERT ON CONFLICT)
 - **DELETE optimisé** : Extraction ID regex + DELETE par batch sur `meta->>'id'` (Gain 100x)
-- **STRUCTURE_TA** : Extraction sous-sections et articles
+- **STRUCTURE_TA** : Extraction sous-sections et articles (v3.0)
+- **Clé primaire intelligente** : `meta->>'id'` + extraction path + hash stable (v3.1)
 
 ### Entrées
 - Archives : `/root/legifrance/archives/<SOURCE>/{freemium|incremental}/*.tar.gz`
@@ -66,12 +77,12 @@ Ingestion streaming des archives vers PostgreSQL avec hiérarchie complète.
 - `--init --sources LEGI,JORF` : freemium + tous incrementals
 - `--daily --sources LEGI,JORF` : seulement nouveaux incrementals
 
-### Structure métadonnées extraites (v3.0)
+### Structure métadonnées extraites (v3.1)
 
 #### **TEXTE_VERSION** (codes/TNC)
 - `id`, `titre`, `nature`, `etat`, `date_debut`, `date_fin`
 
-#### **SECTION_TA** (sections) - v3.0
+#### **SECTION_TA** (sections)
 - `id`, `titre`, `parent`, `nb_sections`, `nb_articles`
 - **`sous_sections`** : Array JSONB avec IDs sous-sections (STRUCTURE_TA)
 - **`articles`** : Array JSONB avec IDs articles (STRUCTURE_TA)
@@ -79,39 +90,125 @@ Ingestion streaming des archives vers PostgreSQL avec hiérarchie complète.
 #### **ARTICLE** (articles)
 - `id`, `num`, `origine`, `date_debut`, `date_fin`, `has_links`, `link_types`
 
+### Fonction `_doc_id()` (v3.1 - correction bug doublons)
+
+```python
+def _doc_id(source: str, path_in_tar: str, xml_bytes: Optional[bytes] = None, 
+            meta: Optional[dict] = None) -> str:
+    """Generate a stable document id.
+    
+    Priority 1: Use LEGI ID from metadata (ensures logical uniqueness)
+    Priority 2: Extract ID from path (e.g., LEGITEXT000006070721)
+    Priority 3: Fallback to hash(source:stable_path) for compatibility
+    
+    v3.1: Fixes duplicate bug where timestamps in path caused infinite accumulation.
+    """
+    # Priorité 1 : ID LEGI depuis metadata
+    if meta and meta.get('id'):
+        return meta['id']
+    
+    # Priorité 2 : Extraction ID depuis path (regex)
+    legi_id_match = re.search(r'(LEGI[A-Z]{3,4}\d{12})', path_in_tar)
+    if legi_id_match:
+        return legi_id_match.group(1)
+    
+    # Priorité 3 : Hash path STABLE (sans timestamp)
+    stable_path = re.sub(r'^\d{8}-\d{6}/', '', path_in_tar)
+    base = f"{source}:{stable_path}".encode("utf-8", errors="ignore")
+    return hashlib.sha256(base).hexdigest()
+```
+
 ### Performance
 - **58 secondes/archive** (moyenne)
 - **520 docs/seconde** (freemium)
 - **DELETE** : 100x plus rapide (extraction regex ID)
 
+### Versions
+- **v1.0** (25 jan) : MVP streaming + parsing basique
+- **v2.0** (26 jan) : DELETE optimisé
+- **v3.0** (26 jan) : STRUCTURE_TA (sous_sections + articles)
+- **v3.1** (27 jan) : Clé primaire intelligente (fix doublons)
+
 ---
 
-## `compute_code_stats_v2.py` ⭐ (Stratégie B)
+## `compute_code_stats_v2.py` ⭐ v2.3 (27 jan 2026)
+
 ### Rôle
 Pré-calcul statistiques codes pour accélération CLI.
 
 ### Fonctionnalités
-- Utilise une **Stratégie GROUP BY globale** (au lieu de boucler sur chaque texte)
+- Utilise **Stratégie GROUP BY globale** (au lieu de boucler sur chaque texte)
 - Calcule nombre d'articles et sections pour tous les codes
+- **Filtre codes MODIFIE** (v2.2) : Ne traite que VIGUEUR et ABROGE
+- **Filtre orphelins** (v2.3) : Ne compte que articles/sections avec parent valide
 - Upsert dans table `code_stats`
 
 ### Sorties
-- Table `code_stats` mise à jour (~289K textes)
+- Table `code_stats` mise à jour (~2,967 codes)
 - Logs : stdout
 
 ### Commandes
 - `--verbose` : affiche progression détaillée
 
 ### Durée
-- **~19 secondes** pour toute la base (Gain 8,500x vs v1)
+- **52 secondes** pour 2,967 codes (Gain 8,500x vs v1)
 - Doit être lancé après chaque ingestion
+
+### Phase 1 : Comptage articles/sections (v2.3)
+
+```sql
+-- Articles : extraction ID depuis path + filtre parent valide
+SELECT code_id, COUNT(*) as nb
+FROM (
+    SELECT (regexp_match(path, '/TEXT/[0-9/]+/(LEGITEXT[0-9]+)/'))[1] as code_id
+    FROM documents
+    WHERE source = 'LEGI' 
+      AND doctype = 'article'
+      AND path ~ '/TEXT/[0-9/]+/LEGITEXT[0-9]+/'
+) AS subquery
+WHERE code_id IN (
+    SELECT DISTINCT meta->>'id' FROM documents
+    WHERE source = 'LEGI' AND doctype = 'texte'
+      AND meta->>'etat' IN ('VIGUEUR', 'ABROGE')
+)
+GROUP BY code_id
+```
+
+```sql
+-- Sections : utilise meta->>'parent' + filtre parent valide
+SELECT meta->>'parent' as code_id, COUNT(*) as nb
+FROM documents
+WHERE source = 'LEGI' 
+  AND doctype = 'section'
+  AND meta->>'parent' IN (
+      SELECT DISTINCT meta->>'id' FROM documents
+      WHERE source = 'LEGI' AND doctype = 'texte'
+        AND meta->>'etat' IN ('VIGUEUR', 'ABROGE')
+  )
+GROUP BY meta->>'parent'
+```
+
+### Phase 2 : Récupération métadonnées (v2.2)
+
+```sql
+-- Filtre sur état VIGUEUR ou ABROGE uniquement
+WHERE meta->>'etat' IN ('VIGUEUR', 'ABROGE')
+```
 
 ### Intégration
 Appelé automatiquement par `daily_pipeline.py` après l'ingestion PostgreSQL.
 
+### Versions
+- **v1** (25 jan) : Boucle sur chaque texte (47 jours total)
+- **v2.0** (26 jan) : GROUP BY (19s)
+- **v2.1** (27 jan) : Fix extraction ID (articles path, sections meta)
+- **v2.2** (27 jan) : Filtre codes MODIFIE (77+31 exact)
+- **v2.3** (27 jan) : Filtre orphelins Phase 1 (titres génériques exclus)
+
 ---
 
-## `legi_cli.py` ⭐ v3.1 (Bugs fixes - 27 Jan 2026)
+## `legi_cli.py` ⭐ v3.1 (27 jan 2026)
+
 ### Rôle
 Interface CLI pour interroger PostgreSQL avec cache arborescence depth=10.
 
@@ -126,7 +223,7 @@ legi_cli.py list_codes --scope=<codes_en_vigueur|codes_abroges|all>
 ```
 Liste des codes avec métadonnées (utilise table `code_stats`).
 
-#### `get_code` (v3.0 - Cache, v3.1 - Bugs fixes)
+#### `get_code`
 ```bash
 legi_cli.py get_code \
   --code_id=<LEGITEXT...> \
@@ -139,19 +236,19 @@ legi_cli.py get_code \
   [--no-cache]
 ```
 
-**Nouveautés v3.0** :
+**Fonctionnalités v3.0** :
 - **Cache automatique** : Utilise table `code_trees` (depth=10 pré-calculé)
 - **Fonction `_truncate_tree()`** : Tronque depth=10 vers depth demandé
 - **Paramètre `--use_cache`** : Défaut True, `--no-cache` pour forcer calcul
 - **Performance** : <0.5s avec cache (vs 7-15s sans)
 
-**Correctifs v3.1 (27 Jan 2026)** :
-- **Bug #1** : Articles jamais retournés (condition après return)
-- **Bug #2** : Un seul article retourné (DISTINCT ON num)
-- **Bug #3** : 46 articles au lieu de 20 (pas de filtre VIGUEUR)
-- **Bug #4** : Doublons dans article_ids (pas de déduplication Python)
-- **Bug #5** : Mauvaise version section (tri par date_debut NULL)
-- **Bug #6** : Doublons finaux SQL (pas de DISTINCT ON id)
+**Correctifs v3.1 (27 jan 2026)** :
+- **Bug #1** : Articles jamais retournés (condition après return) ✅
+- **Bug #2** : Un seul article retourné (DISTINCT ON num) ✅
+- **Bug #3** : 46 articles au lieu de 20 (pas de filtre VIGUEUR) ✅
+- **Bug #4** : Doublons dans article_ids (pas de déduplication Python) ✅
+- **Bug #5** : Mauvaise version section (tri par date_debut NULL) ✅
+- **Bug #6** : Doublons finaux SQL (pas de DISTINCT ON id) ✅
 
 **Comportement v3.1** :
 - Par défaut, filtre sur `etat='VIGUEUR'` (articles actuellement applicables)
@@ -184,26 +281,16 @@ JSON sur stdout (parsé par le tool MCP `legifrance_legi`).
 | `get_articles` | 5s | 5s | - |
 
 ### Versions
-- **v1.0** : Requêtes directes (doublons)
-- **v1.1** : Déduplication + pagination
-- **v2.0** : Utilise STRUCTURE_TA (sous_sections + articles)
-- **v3.0** : Cache depth=10 automatique
-- **v3.1** : ✅ Bugs fixes (6 bugs corrigés)
-
-### Bugs corrigés v3.1
-
-| Bug | Impact | Solution |
-|-----|--------|----------|
-| Articles jamais retournés | 0% données | Déplacer inclusion articles |
-| Un seul article | 97% perte | Supprimer DISTINCT ON num |
-| 46 articles (versions historiques) | Versions obsolètes | Filtrer VIGUEUR |
-| Doublons article_ids | Pollution | Déduplication Python |
-| Mauvaise version section | Incohérence | Tri updated_at |
-| Doublons finaux SQL | 13x même ID | DISTINCT ON id |
+- **v1.0** (25 jan) : Requêtes directes (doublons)
+- **v1.1** (26 jan) : Déduplication + pagination
+- **v2.0** (26 jan) : Utilise STRUCTURE_TA (sous_sections + articles)
+- **v3.0** (26 jan) : Cache depth=10 automatique
+- **v3.1** (27 jan) : 6 bugs corrigés (articles, doublons, filtres)
 
 ---
 
-## `precalculate_all_trees.py` ⭐ NOUVEAU (Phase 4b)
+## `precalculate_all_trees.py` ⭐ v2 (26 jan 2026)
+
 ### Rôle
 Pré-calcul des arborescences complètes depth=10 pour tous les codes LEGI.
 
@@ -211,7 +298,8 @@ Pré-calcul des arborescences complètes depth=10 pour tous les codes LEGI.
 `/root/legifrance/scripts/precalculate_all_trees.py`
 
 ### Fonctionnalités
-- Génère arbres depth=10 avec articles pour tous les codes (~170 codes)
+- Génère arbres depth=10 avec articles pour tous les codes (~171 codes)
+- **Batch loading** (v2) : Charge toutes sections en 2-3 requêtes au lieu de récursif SQL
 - Sauvegarde dans table `code_trees`
 - Monitoring temps génération et tailles
 - Skip codes déjà en cache (<24h)
@@ -236,39 +324,85 @@ CREATE TABLE code_trees (
     nb_sections INTEGER,
     nb_articles INTEGER,
     generated_at TIMESTAMP,
+    updated_at TIMESTAMP,
     generation_duration_ms INTEGER,
     tree_size_bytes INTEGER
 );
 ```
 
 ### Performance
-- **19 secondes/code** (moyenne petits codes)
-- **60-90 secondes** (codes complexes : Code du travail)
-- **Génération complète** : ~60-120 minutes (170 codes)
-- **Taille cache totale** : ~500 MB
+- **1.37s/code** (moyenne)
+- **Génération complète** : 3.8 minutes pour 171 codes
+- **Taille cache totale** : 115 MB
 
 ### Intégration
 - Lancement initial : `python3 precalculate_all_trees.py`
 - Maintenance : `regenerate_stale_caches.py` (cron quotidien)
 
+### Versions
+- **v1** (26 jan) : Récursion SQL naïve (36+ min/code, abandonné)
+- **v2** (26 jan) : Batch loading + construction mémoire (1.37s/code)
+
 ---
 
-## `daily_pipeline.py`
+## `regenerate_stale_caches.py` (26 jan 2026)
+
 ### Rôle
-Exécute les étapes quotidiennes (download, integrity, ingest, compute stats) + sanity.
+Maintenance automatique du cache arborescence.
+
+### Fonctionnalités
+- Détecte codes avec cache obsolète (`updated_at < NOW() - 24h`)
+- Régénère uniquement ceux-là
+- Options : `--force`, `--limit`, `--verbose`
+- Durée attendue : 5-15 min/jour (selon nb codes modifiés)
+
+### Triggers automatiques
+Deux triggers PostgreSQL invalident automatiquement le cache :
+- `trigger_invalidate_cache_section` : Sur UPDATE/INSERT sections
+- `trigger_invalidate_cache_article` : Sur UPDATE/INSERT articles
+
+### Commandes
+```bash
+regenerate_stale_caches.py [--force] [--limit N] [--verbose]
+```
+
+### Table monitoring
+```sql
+CREATE TABLE cache_invalidations (
+    id SERIAL PRIMARY KEY,
+    code_id TEXT,
+    reason TEXT,  -- 'section_modified', 'article_modified'
+    triggered_at TIMESTAMP,
+    document_id TEXT
+);
+```
+
+### Intégration
+Appelé automatiquement par `daily_pipeline.py` (Step 5) après `compute_code_stats`.
+
+---
+
+## `daily_pipeline.py` v2.0 (26 jan 2026)
+
+### Rôle
+Exécute les étapes quotidiennes (download, integrity, ingest, compute stats, regen cache) + sanity.
 
 ### Étapes
 1. `download_archives.py --incremental`
 2. `check_integrity.py --auto-fix --relaunch-download`
 3. `ingest_legifrance_pg.py --daily --sources LEGI,JORF`
 4. `compute_code_stats_v2.py`
-5. Sanity check (inodes + state file)
+5. 🆕 `regenerate_stale_caches.py` (v2.0)
+6. Sanity check (inodes + state file)
 
 ### Planification
 systemd timer à 04:00 Europe/Paris.
 
 ### Logs
 `/root/legifrance/logs/pipeline_*.log`
+
+### Lock
+`/tmp/legifrance_pipeline.lock`
 
 ### Exit codes
 - 0: OK
@@ -277,14 +411,19 @@ systemd timer à 04:00 Europe/Paris.
 - 4: échec integrity
 - 5: échec ingest
 - 6: échec compute_stats (non-fatal)
-- 7: échec sanity
+- 7: échec regenerate_cache (non-fatal)
+- 8: échec sanity
+
+### Durée totale
+~1h40-1h50 (quotidien)
 
 ---
 
-## Scripts obsolètes (non utilisés en production)
+## Scripts obsolètes (archivés, non utilisés en production)
 
 ### `compute_code_stats.py` (v1)
-⚠️ Remplacé par `compute_code_stats_v2.py` (Stratégie B)
+⚠️ Remplacé par `compute_code_stats_v2.py` (Stratégie B)  
+Raison : 47 jours vs 19 secondes
 
 ### `extract_current.py`
 ⚠️ Script d'extraction "current" abandonné (saturation inodes).  
@@ -296,19 +435,38 @@ Ne pas utiliser en production : saturation inodes.
 
 ---
 
-## 📊 **Récapitulatif scripts actifs**
+## 📊 Récapitulatif scripts actifs
 
-| Script | Version | Fonction | Fréquence |
-|--------|---------|----------|-----------|
-| `download_archives.py` | v1 | Téléchargement DILA | Quotidien |
-| `check_integrity.py` | v1 | Vérification intégrité | Quotidien |
-| `ingest_legifrance_pg.py` | **v3.0** | Ingestion PostgreSQL | Quotidien |
-| `compute_code_stats_v2.py` | v2 | Stats codes | Quotidien |
-| `legi_cli.py` | **v3.1** | CLI avec cache + bugs fixes | À la demande |
-| `precalculate_all_trees.py` | v1 | Pré-calcul cache | Initial + cron |
-| `daily_pipeline.py` | v1 | Orchestrateur | Quotidien (04:00) |
+| Script | Version | Dernière MAJ | Fonction |
+|--------|---------|--------------|----------|
+| `download_archives.py` | v1.0 | 25 jan | Téléchargement DILA |
+| `check_integrity.py` | v1.0 | 25 jan | Vérification intégrité |
+| `ingest_legifrance_pg.py` | **v3.1** | 27 jan | Ingestion PostgreSQL |
+| `compute_code_stats_v2.py` | **v2.3** | 27 jan | Stats codes |
+| `legi_cli.py` | **v3.1** | 27 jan | CLI + cache |
+| `precalculate_all_trees.py` | v2.0 | 26 jan | Pré-calcul cache |
+| `regenerate_stale_caches.py` | v1.0 | 26 jan | Maintenance cache |
+| `daily_pipeline.py` | v2.0 | 26 jan | Orchestrateur |
 
-**Total scripts actifs** : 7  
-**Scripts obsolètes** : 3 (archivés)
+**Total scripts actifs** : 8  
+**Scripts obsolètes archivés** : 3
 
-**Dernière mise à jour** : 27 Janvier 2026
+---
+
+## 🎯 Bugs corrigés (27 jan 2026)
+
+### `ingest_legifrance_pg.py` v3.1
+- ✅ Bug doublons massifs (clé primaire hash path avec timestamp)
+- Résultat : 3.9M → 2.5M docs, 0 doublons
+
+### `compute_code_stats_v2.py` v2.1-2.3
+- ✅ Bug 3 codes manquants (extraction ID depuis path vs meta)
+- ✅ Bug codes MODIFIE comptés ABROGE (CASE statement)
+- ✅ Bug codes orphelins titres génériques (filtrage Phase 1)
+- Résultat : 74→77 VIGUEUR, 34→31 ABROGE, 0 titres génériques
+
+### `legi_cli.py` v3.1
+- ✅ 6 bugs articles/doublons/filtres corrigés
+- Résultat : 20 articles uniques (vs 32 avec doublons)
+
+**Dernière mise à jour** : 27 Janvier 2026 17:05 UTC

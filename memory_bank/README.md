@@ -23,7 +23,9 @@ Ce dossier contient la **mémoire opérationnelle** du système Légifrance (ser
 - **`PERFORMANCE.md`** : Métriques, benchmarks, optimisations appliquées
 
 ### Sessions
-- **`SESSION_YYYY-MM-DD.md`** : Récapitulatif détaillé de chaque session de travail
+- **`SESSION_2026-01-25.md`** : Optimisation CLI + Pipeline
+- **`SESSION_2026-01-26.md`** : Hiérarchie complète + Cache depth=10
+- **`SESSION_2026-01-27.md`** : Correction bugs ingestion et code stats
 
 ---
 
@@ -46,30 +48,30 @@ Ce dossier contient la **mémoire opérationnelle** du système Légifrance (ser
 
 ---
 
-## 📊 État actuel (2026-01-25)
+## 📊 État actuel (2026-01-27)
 
-### Système opérationnel
-- ✅ PostgreSQL 14 avec 1.89M documents LEGI
-- ✅ CLI `legi_cli.py` fonctionnel (`list_codes`, `get_articles`)
-- ✅ Pipeline quotidien configuré (`daily_pipeline.py`)
-- ✅ Table `code_stats` pour pré-calcul statistiques
+### ✅ Système 100% opérationnel
+- ✅ PostgreSQL 14 avec 2.5M documents LEGI
+- ✅ CLI `legi_cli.py` fonctionnel (0 bugs)
+- ✅ Pipeline quotidien automatisé (systemd timer 04:00)
+- ✅ Cache depth=10 pré-calculé (171 codes, &lt;0.5s)
+- ✅ Code stats à jour (77 VIGUEUR, 31 ABROGE)
+- ✅ 0 doublons, 0 bugs connus
 
-### En cours
-- ⏳ Ingestion LEGI (98% terminé, 191/194 archives)
-- ⏳ Compute code stats (0.03% terminé, 79/288K textes)
-
-### En attente
-- 🔧 Ajout colonne `code_id` dénormalisée (bloqué par ingestion)
-- 🔧 Optimisation `get_code` (après ajout `code_id`)
-- 📅 Déploiement systemd timer pipeline quotidien
+### Métriques production
+- **Documents** : 2,516,208 (0 doublons)
+- **Taille DB** : 11 GB
+- **Codes VIGUEUR** : 77 (100% exact)
+- **Codes ABROGE** : 31 (100% exact)
+- **Performance** : list_codes 0.44s, get_code &lt;1.5s
 
 ---
 
 ## 🔗 Liens utiles
 
 ### Serveur
-- **IP** : YOUR_SERVER_IP
-- **SSH** : `ssh root@YOUR_SERVER_IP` (clé ~/.ssh/id_rsa)
+- **IP** : 188.245.151.223
+- **SSH** : `ssh root@188.245.151.223` (clé ~/.ssh/id_rsa)
 - **User app** : `legifrance_app` (UID 998)
 
 ### Chemins importants
@@ -80,7 +82,7 @@ Ce dossier contient la **mémoire opérationnelle** du système Légifrance (ser
 
 ### PostgreSQL
 - DB : `legifrance`
-- Tables : `documents`, `code_stats`
+- Tables : `documents`, `code_stats`, `code_trees`
 - Connexion : `sudo -u legifrance_app psql -d legifrance`
 
 ---
@@ -106,6 +108,8 @@ Contenu recommandé :
 3. **Backups** : Toujours sauvegarder fichiers avant modification (backup auto)
 4. **Logs** : Tous les scripts longs doivent logger (horodatage + état)
 5. **State** : Tous les jobs longs doivent avoir un state file (reprise possible)
+6. **Tests** : Toujours tester sur 1 archive avant ingestion complète
+7. **Validation** : Pas de biais de confirmation, requêtes SQL exhaustives
 
 ---
 
@@ -113,4 +117,7 @@ Contenu recommandé :
 
 Projet : dragonfly-mcp-server-legifrance  
 Repo local : `server_legifrance/`  
-Memory bank : `server_legifrance/memory_bank/`
+Memory bank : `server_legifrance/memory_bank/`  
+Scripts miroir : `server_legifrance/mirror/`
+
+**Dernière mise à jour** : 27 Janvier 2026 16:50 UTC

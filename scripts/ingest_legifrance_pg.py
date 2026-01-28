@@ -355,13 +355,29 @@ def _extract_text_and_meta_from_xml(xml_bytes: bytes, path_in_tar: str) -> Tuple
         return "", {"parse_error": True, "error": str(e)}
 
 
-def _doc_id(source: str, path_in_tar: str, xml_bytes: Optional[bytes] = None) -> str:
+def _doc_id(source: str, path_in_tar: str, xml_bytes: Optional[bytes] = None, meta: Optional[dict] = None) -> str:
     """Generate a stable document id.
 
-    MVP: hash(source + path_in_tar).
-    If later we derive a better id from XML metadata, we can migrate.
+    Priority 1: Use LEGI ID from metadata (ensures logical uniqueness)
+    Priority 2: Extract ID from path (e.g., LEGITEXT000006070721, LEGIARTI000006797825)
+    Priority 3: Fallback to hash(source:path_in_tar) for compatibility
+    
+    This fixes the duplicate bug where timestamps in path caused infinite accumulation.
     """
-    base = f"{source}:{path_in_tar}".encode("utf-8", errors="ignore")
+    # Priorité 1 : Utiliser l'ID LEGI depuis metadata
+    if meta and meta.get('id'):
+        return meta['id']
+    
+    # Priorité 2 : Extraire ID LEGI depuis le path
+    # Formats: LEGITEXT000006070721, LEGIARTI000006797825, LEGISCTA000006136117, etc.
+    legi_id_match = re.search(r'(LEGI[A-Z]{3,4}\d{12})', path_in_tar)
+    if legi_id_match:
+        return legi_id_match.group(1)
+    
+    # Priorité 3 : Fallback sur path stable (sans timestamp)
+    # Retirer le timestamp au début: "20260104-202823/legi/..." → "legi/..."
+    stable_path = re.sub(r'^\d{8}-\d{6}/', '', path_in_tar)
+    base = f"{source}:{stable_path}".encode("utf-8", errors="ignore")
     return hashlib.sha256(base).hexdigest()
 
 
@@ -521,7 +537,7 @@ def ingest_archive(
                     text, meta = _extract_text_and_meta_from_xml(data, path_in_tar)
                     meta.update({"source": source})
 
-                    doc_id = _doc_id(source, path_in_tar)
+                    doc_id = _doc_id(source, path_in_tar, meta=meta)
                     sha256 = _sha256_bytes(data)
 
                     pending.append(

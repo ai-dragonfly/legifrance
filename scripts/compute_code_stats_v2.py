@@ -47,13 +47,21 @@ def compute_all_stats(conn, verbose: bool = False):
                 code_id,
                 COUNT(*) as nb
             FROM (
-                SELECT (regexp_match(path, '(LEGITEXT[0-9]+)'))[1] as code_id
+                SELECT (regexp_match(path, '/TEXT/[0-9/]+/(LEGITEXT[0-9]+)/'))[1] as code_id
                 FROM documents
                 WHERE source = 'LEGI' 
                   AND doctype = 'article'
-                  AND path LIKE '%LEGITEXT%'
+                  AND path ~ '/TEXT/[0-9/]+/LEGITEXT[0-9]+/'
             ) AS subquery
             WHERE code_id IS NOT NULL
+              AND code_id IN (
+                  SELECT DISTINCT meta->>'id'
+                  FROM documents
+                  WHERE source = 'LEGI'
+                    AND doctype = 'texte'
+                    AND meta->>'etat' IN ('VIGUEUR', 'ABROGE')
+                    AND meta->>'id' IS NOT NULL
+              )
             GROUP BY code_id
         """)
         
@@ -72,17 +80,22 @@ def compute_all_stats(conn, verbose: bool = False):
         # 2. Compter sections par code (1 seul scan)
         cur.execute("""
             SELECT 
-                code_id,
+                meta->>'parent' as code_id,
                 COUNT(*) as nb
-            FROM (
-                SELECT (regexp_match(path, '(LEGITEXT[0-9]+)'))[1] as code_id
-                FROM documents
-                WHERE source = 'LEGI' 
-                  AND doctype = 'section'
-                  AND path LIKE '%LEGITEXT%'
-            ) AS subquery
-            WHERE code_id IS NOT NULL
-            GROUP BY code_id
+            FROM documents
+            WHERE source = 'LEGI' 
+              AND doctype = 'section'
+              AND meta->>'parent' IS NOT NULL
+              AND meta->>'parent' LIKE 'LEGITEXT%'
+              AND meta->>'parent' IN (
+                  SELECT DISTINCT meta->>'id'
+                  FROM documents
+                  WHERE source = 'LEGI'
+                    AND doctype = 'texte'
+                    AND meta->>'etat' IN ('VIGUEUR', 'ABROGE')
+                    AND meta->>'id' IS NOT NULL
+              )
+            GROUP BY meta->>'parent'
         """)
         
         for code_id, nb in cur.fetchall():
@@ -117,10 +130,11 @@ def fetch_all_texts(conn, code_ids: list):
                 meta->>'titre' as titre,
                 meta->>'nature' as nature,
                 CASE
+                    WHEN meta->>'etat' = 'VIGUEUR' THEN 'VIGUEUR'
+                    WHEN meta->>'etat' = 'ABROGE' THEN 'ABROGE'
                     WHEN meta->>'date_fin' IS NULL THEN 'VIGUEUR'
                     WHEN meta->>'date_fin' >= '2999-01-01' THEN 'VIGUEUR'
-                    WHEN meta->>'etat' = 'VIGUEUR' THEN 'VIGUEUR'
-                    ELSE 'ABROGE'
+                    ELSE NULL
                 END as etat
             FROM documents
             WHERE source = 'LEGI'
@@ -128,6 +142,7 @@ def fetch_all_texts(conn, code_ids: list):
               AND meta->>'id' IN ({placeholders})
               AND meta->>'titre' IS NOT NULL
               AND meta->>'titre' != ''
+              AND meta->>'etat' IN ('VIGUEUR', 'ABROGE')
             ORDER BY meta->>'id', meta->>'date_debut' DESC NULLS LAST
         """, code_ids)
         
